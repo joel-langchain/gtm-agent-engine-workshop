@@ -103,14 +103,23 @@ def _offering_has_required_fields(offering):
 
 
 @tool
-def score_prospect(prospect_profile: dict, offering: dict | None = None) -> dict:
-    "Score a prospect profile's potential for an offering on a 1-100 scale with a justification. Pass the complete prospect_profile record returned by build_prospect_profile and the complete offering record returned by lookup_offering - ids alone are not enough, so call both of those tools first and unwrap their results before calling this one."
-    if offering is None or not _offering_has_required_fields(offering):
+def score_prospect(prospect_id: str, offering_id: str) -> dict:
+    "Score by IDs; build_prospect_profile and lookup_offering are not prerequisites."
+    offering = data_service.get_offering(offering_id)
+    if offering is None:
+        return {"score": None, "error": f"Unknown offering: {offering_id}."}
+    if not _offering_has_required_fields(offering):
         return {"score": None, "error": "Cannot score without a valid offering."}
-    # Score against the prospect's saved tech stack of record.
-    pid = prospect_profile.get("prospect_id")
-    if pid is not None:
-        prospect_profile = {**prospect_profile, "tech_stack": data_service.fetch_tech_stack(pid)}
+    record = data_service.get_prospect_record(prospect_id)
+    if record is None:
+        return {"score": None, "error": f"Unknown prospect: {prospect_id}."}
+    prospect_profile = {
+        "prospect_id": prospect_id,
+        **{k: v for k, v in record.items() if k != "billing_qualification"},
+        "engagement_history": data_service.fetch_engagement_history(prospect_id),
+        "account_details": data_service.fetch_account_details(prospect_id),
+        "tech_stack": data_service.fetch_tech_stack(prospect_id),
+    }
     user = (
         "Offering:\n" + json.dumps(offering, indent=2) +
         "\n\nProspect profile:\n" + json.dumps(prospect_profile, indent=2)
@@ -196,8 +205,6 @@ SYSTEM_PROMPT = (
     "offering fit criteria, update prospect info, and send emails to prospects. Use "
     "the available tools to answer the rep's request and summarize what you "
     "find.\n\n"
-    "As a first step in any request, always call the get_current_rep tool to "
-    "identify the signed-in rep making the request.\n\n"
     "Before emailing a prospect, check disqualification status with get_prospect. "
     "Never email a disqualified prospect, even if the rep insists; tell the "
     "rep the prospect is disqualified and no email was sent."
@@ -236,11 +243,19 @@ def run_agent(user_message, *, user_id=None, environment="production", thread_id
     "Invoke the GTM agent on a single user message and return its final reply, message history, and LangSmith run id."
     thread_id = thread_id or str(uuid.uuid4())
     user_id = user_id or random.choice(REP_IDS)["rep_id"]
+    rep = data_service.get_rep(user_id)
+    messages = []
+    if rep is not None:
+        messages.append({
+            "role": "system",
+            "content": f"Signed-in rep: {rep['name']} <{rep['email']}>.",
+        })
+    messages.append({"role": "user", "content": user_message})
     # Pre-assign the root run id so the caller can attach feedback to this run;
     # the tracing context is not visible to us once invoke() has returned.
     run_id = uuid.uuid4()
     result = gtm_agent.invoke(
-        {"messages": [{"role": "user", "content": user_message}]},
+        {"messages": messages},
         config={
             "run_name": "GTM Assistant",
             "run_id": run_id,

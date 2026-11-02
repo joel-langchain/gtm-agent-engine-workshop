@@ -23,6 +23,14 @@ __all__ = [
 # lookups within a run are served without rebuilding.
 _PROFILES = {}
 
+SENSITIVE_PROSPECT_FIELDS = ("billing_qualification",)
+
+
+def _redact(record):
+    "Return a prospect record without sensitive billing fields."
+    return {key: value for key, value in record.items()
+            if key not in SENSITIVE_PROSPECT_FIELDS}
+
 # ---------------------------------------------------------------------------
 # Public data-access functions
 # ---------------------------------------------------------------------------
@@ -63,7 +71,8 @@ def fetch_tech_stack(prospect_id):
 @traceable(run_type="tool", name="get_profile_from_db")
 def get_profile_from_db(prospect_id):
     "Look up a stored prospect profile. Returns {'prospect_profile': record|None}."
-    return {"prospect_profile": _PROFILES.get(prospect_id)}
+    profile = _PROFILES.get(prospect_id)
+    return {"prospect_profile": _redact(profile) if profile is not None else None}
 
 
 @traceable(run_type="tool", name="save_profile_to_db")

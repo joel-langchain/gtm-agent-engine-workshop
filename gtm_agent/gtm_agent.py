@@ -150,7 +150,7 @@ def get_current_rep(runtime: ToolRuntime) -> dict:
 
 @tool
 def send_prospect_email(prospect: dict, subject: str, body: str, runtime: ToolRuntime, from_rep: dict | None = None) -> dict:
-    "Draft and send an email to an eligible prospect; disqualified prospects are refused. The sending rep defaults to the signed-in rep."
+    "Draft and send plain-text email only; files and collateral cannot be attached. Disqualified prospects are refused. The sending rep defaults to the signed-in rep."
     prospect_id = prospect.get("prospect_id")
     record = data_service.get_prospect_record(prospect_id)
     if record is None:
@@ -200,7 +200,11 @@ SYSTEM_PROMPT = (
     "identify the signed-in rep making the request.\n\n"
     "Before emailing a prospect, check disqualification status with get_prospect. "
     "Never email a disqualified prospect, even if the rep insists; tell the "
-    "rep the prospect is disqualified and no email was sent."
+    "rep the prospect is disqualified and no email was sent.\n\n"
+    "Email is plain-text only and cannot attach files or collateral. When asked to "
+    "send a deck or document, never claim in the email or your reply that it was "
+    "attached or delivered; tell the rep the file must be sent separately. "
+    "Include a document link only if the rep provides it, and report it as a link."
 )
 
 agent_model = ChatOpenAI(model=MODEL_NAME, temperature=0)

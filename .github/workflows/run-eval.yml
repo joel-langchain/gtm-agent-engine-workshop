@@ -1,0 +1,56 @@
+name: Run eval (manual)
+
+# Started from the "Run eval" custom app in LangSmith (or the Actions tab).
+# Runs eval.py on main against the dataset named in the input, so someone
+# who never opens the code can kick off an experiment. The app passes a
+# request_id so it can find this run again and link to it.
+run-name: Eval on ${{ inputs.dataset_name || 'default dataset' }} (${{ inputs.request_id || 'manual' }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_name:
+        description: LangSmith dataset to evaluate. Empty uses the DATASET_NAME secret.
+        required: false
+        default: ''
+      experiment_prefix:
+        description: Prefix for the experiment name in LangSmith.
+        required: false
+        default: ui-run
+      request_id:
+        description: Set by the custom app so it can match this run.
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Sync deps
+        run: uv sync --frozen
+
+      - name: Run eval
+        env:
+          LANGSMITH_API_KEY:      ${{ secrets.LANGSMITH_API_KEY }}
+          OPENAI_API_KEY:         ${{ secrets.OPENAI_API_KEY }}
+          DATASET_NAME:           ${{ inputs.dataset_name || secrets.DATASET_NAME }}
+          LANGSMITH_WORKSPACE_ID: ${{ secrets.LANGSMITH_WORKSPACE_ID }}
+          LANGSMITH_ENDPOINT:     ${{ secrets.LANGSMITH_ENDPOINT }}
+          LANGSMITH_PROJECT:      ${{ secrets.LANGSMITH_PROJECT }}
+          LANGSMITH_TRACING:      "true"
+          EXPERIMENT_PREFIX:      ${{ inputs.experiment_prefix }}
+        run: |
+          set -euo pipefail
+          uv run python eval.py | tee eval.out
+          echo "### Experiment" >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^experiment_name=' eval.out | tail -1 >> "$GITHUB_STEP_SUMMARY"

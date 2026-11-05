@@ -5,10 +5,16 @@ from langsmith import evaluate
 from gtm_agent.gtm_agent import run_agent
 
 
+# Which agent to call for each example, chosen by the example's optional
+# "agent" input. One agent here; a multi-agent platform would list each one.
+AGENTS = {"gtm-agent": run_agent}
+
+
 def evaluation_target(inputs: dict) -> dict:
     user_message = inputs["messages"][0]["content"]
+    agent = AGENTS[inputs.get("agent", "gtm-agent")]
 
-    result = run_agent(
+    result = agent(
         user_message,
         user_id=inputs.get("user_id"),
         thread_id=inputs.get("thread_id"),

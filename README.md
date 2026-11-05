@@ -15,7 +15,9 @@ cluster the failures → **Build** the fix as a PR → **Test** it against a dat
 .
 ├── .github/
 │   └── workflows/
-│       └── eval.yml           # PR eval: runs eval.py on main vs. the PR branch and comments the results
+│       ├── eval.yml           # PR eval: runs eval.py on main vs. the PR branch and comments the results
+│       └── run-eval.yml       # Manual eval on one dataset, started by the Run eval custom app
+├── custom-app/                # LangSmith custom app with a Test button that starts run-eval.yml (see its README)
 ├── gtm_agent/
 │   ├── gtm_agent.py           # The agent graph and run_agent entrypoint
 │   ├── data_service.py        # Data access layer

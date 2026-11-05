@@ -49,7 +49,9 @@ jobs:
 
       - name: Route model calls through the LangSmith gateway
         if: inputs.use_gateway == 'true'
-        run: echo "OPENAI_BASE_URL=https://gateway.smith.langchain.com/v1" >> "$GITHUB_ENV"
+        run: |
+          echo "OPENAI_BASE_URL=https://gateway.smith.langchain.com/v1" >> "$GITHUB_ENV"
+          echo "GTM_MODEL=openai/gpt-4o-mini" >> "$GITHUB_ENV"
 
       - name: Run eval
         env:

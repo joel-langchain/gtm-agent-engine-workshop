@@ -25,6 +25,10 @@ on:
         description: LangSmith workspace the app runs in. Empty uses the LANGSMITH_WORKSPACE_ID secret.
         required: false
         default: ''
+      use_gateway:
+        description: Send the agent's model calls through the LangSmith LLM Gateway instead of OpenAI directly.
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -43,12 +47,17 @@ jobs:
       - name: Sync deps
         run: uv sync --frozen
 
+      - name: Route model calls through the LangSmith gateway
+        if: inputs.use_gateway == 'true'
+        run: echo "OPENAI_BASE_URL=https://gateway.smith.langchain.com/v1" >> "$GITHUB_ENV"
+
       - name: Run eval
         env:
           # The Run eval app lives in the Demo Workspace, which the PR-eval key
           # can't reach, so manual runs prefer a separate Demo Workspace key.
           LANGSMITH_API_KEY:      ${{ secrets.DEMO_LANGSMITH_API_KEY || secrets.LANGSMITH_API_KEY }}
-          OPENAI_API_KEY:         ${{ secrets.OPENAI_API_KEY }}
+          # Through the gateway, the LangSmith key authenticates the model calls.
+          OPENAI_API_KEY:         ${{ inputs.use_gateway == 'true' && secrets.DEMO_LANGSMITH_API_KEY || secrets.OPENAI_API_KEY }}
           DATASET_NAME:           ${{ inputs.dataset_name || secrets.DATASET_NAME }}
           LANGSMITH_WORKSPACE_ID: ${{ inputs.workspace_id || secrets.LANGSMITH_WORKSPACE_ID }}
           LANGSMITH_ENDPOINT:     ${{ secrets.LANGSMITH_ENDPOINT }}
